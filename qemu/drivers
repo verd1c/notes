@@ -1,0 +1,14 @@
+
+
+## QEMU API
+
+### MMIO
+- memory_region_init_io
+
+### Threads
+- qemu_thread_create
+- qemu_mutex_init
+- qemu_mutex_lock
+- qemu_cond_init
+- qemu_cond_destroy
+- qemu_mutex_destroy
