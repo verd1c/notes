@@ -61,6 +61,8 @@ For example, OS A and OS B both try to draw on the screen using the GPU. Instead
 ## Hardware-Assisted Virtualization
 
 ## Para-Virtualization
+Reduces number of traps
+Remove un-virtualizable instructions
 
 ## Hypervisor Types
 
@@ -80,3 +82,87 @@ For example, OS A and OS B both try to draw on the screen using the GPU. Instead
     ![](img/shadow.png)
 
 3.
+
+## Process VM
+
+Process emulation allows us to execute an executable that is made for an architecture different than the one we are running on, by encapsulating the virtual process and presenting it as a normal one to us.
+
+Example:\
+```qemu-user```
+
+# Binary Translation
+
+## Static Binary Translation
+
+Difficulties with static translation:
+1. Code Identification
+2. Polycode
+3. Precise Exceptions\
+    TLB Miss -> Exception -> Different Implementations / arch
+
+## The problem
+
+Dynamic Binary Translation combines emulation and translation to overcome the difficulties of identifying what is code and what not statically. Since we would like to group instructions together, we want the groups to consist of instructions that do not include any control flow change (jmp, call, ret). Considering the following example, this is very easy statically:
+
+```
+push    ebp
+mov     eax,    1
+add     eax,    50
+...
+xor     eax,    eax
+jmp     0x6d7bef
+```
+
+We could group everything from ```push ebp``` to ```xor eax eax``` in a block, since they contain no control flow changes. Then we could go to 0x6d7bef and analyze the next block.
+
+However, a binary will not always look like this. For example, consider the following program that dynamically pulls an address of a switch table then jumps to it:
+
+```
+move    edx,    [ebp-4]
+add     edi,    edx
+mov     rax,    [edi]
+jmp     rax
+```
+
+Here, we can again group the instructions before the jmp together, but the problem comes when we would like to analyze the next block. Statically, we can never know what the value of rax might be, and thus we would have to take every possible value and analyze it without knowing if its code or not, which is impossible.
+
+To overcome that, we instead emulate the program, executing each instruction. By doing that, we will know the runtime value (one of them) of rax at that point, and thus we will be able to analyze a piece of data that is actually code. 
+
+## Dynamic Binary Translation
+
+DBT in its core is a few simple steps that allow us to group those important instructions into blocks and depending on their importance be able to execute them faster. For example, if a bunch of instructions are being executed constantly, instead of emulating them one by one, we could just compile them into native code for our architecture and then inject that native code every time we come across them.
+
+The DBT process is as follows:
+1. Emulate the next instruction, add it to the current group
+2. Have we found a jmp, call or ret?
+    - If yes, go to 3
+    - If no, go to 1 and keep emulating
+3. Since we found a control flow change, wrap up the current group. We now have a basic block
+4. Emulate the control flow change (jmp) and reach the first new instruction.
+5. Have we been here before?
+    - If yes, this is a group
+
+```c
+while(true){
+
+    curr_instruction = next_instruction()
+
+    if(curr_instruction != 'jmp'){
+        emulate_instruction(curr_instruction)
+        current_block.append(curr_instruction)
+        continue;
+    }
+
+    // We found a jmp, thus we close the basic block
+    known_blocks.append(current_block)
+    current_block = new()
+
+    // Emulate the jmp so we arrive to the next block
+    emulate_instruction(curr_instruction)
+    
+
+}
+```
+
+
+
