@@ -7,6 +7,30 @@
 5. [Virtualization](#Virtualization)
     1. 
 
+# ARM
+
+## Interrupts
+
+```asm
+MACRO
+IRQ_ENTRY $reg
+
+    sub     r14, r14, #4
+    stmfd   sp!, {r14}
+
+    mrs     r14, SPSR
+    stmfd   sp!, {r0, r14}
+
+    mrs     r14, CPSR
+    bic     r14, r14, #I_BIT
+    orr     r14, r14, #ARM_MODE_SYS
+    msr     CPSR, r14
+
+    stmfd   sp!, {r1-r3, $reg, r12, r14}
+MEND
+```
+
+
 # Virtualization
 
 ## Virtualization vs Emulation
@@ -56,13 +80,17 @@ For example, OS A and OS B both try to draw on the screen using the GPU. Instead
 
 ![](img/trap_and_emulate.png)
 
-## Binary Translation
-
 ## Hardware-Assisted Virtualization
+
+In hardware assisted virtualization the virtual layer sits in a new root mode privilege level under level 0. Guest O/S privileged and sensitive calls are set to auto trap to the hypervisor while user request are executed directly to the CPU for high performance. Hardware assisted virtualization requires a compatible CPU like intel VT-x and AMD’s AMD-V to work. This technique is not performing as expected because of the high overhead between guest O/S-to-hypervisor transition. On the other side hardware assisted virtualization is the future and we are expecting to see improved performance in next generation releases. At this moment this technique is utilized in specific cases by vendors like VMware such as for 64-bit guest support on Intel Processors. O/S is still fully abstracted from the underlying hardware thus it doesn’t require any modification.
 
 ## Para-Virtualization
 Reduces number of traps
 Remove un-virtualizable instructions
+
+In paravirtualization the Guest O/S kernel is modified to provide a special API that can be used by the virtual layer to translate non-virtualizable instructions with hypercalls. Virtualization layer interacts directly with guest O/S thus its lower virtualization overhead and better performance, though it can vary depending on the workload. Since paravirtualization requires kernel modification it is not suited for O/S like MS windows which kernel cannot be modified. Also in production environments deep kernel modification is a matter of question since it introduces significant support and maintability issues.
+
+Paravirtualization is used in many cases by vendors in conjunction with binary or hardware assisted technique to provide better performance. Example of this are VMtools which are a set of drivers and tools that allow virtual layer to interact with Guest O/S for better performance and manageability but not in the CPU level.
 
 ## Hypervisor Types
 
@@ -91,6 +119,11 @@ Example:\
 ```qemu-user```
 
 # Binary Translation
+
+In binary translation the virtualization layer sits at CPU privilege level 0 (most privileged). The Guest O/S system were supposed to run on level 0, but since virtual layer occupies that level, it moves guest O/S execution at privilege level 1 and leaves user applications at level 3 as it supposed to be.  The non-virtualizable kernel code of the guest O/S is translated by virtual layer into new sequences of instructions that have the intended effect on virtual hardware, while user level code is directly executed on the CPU for high performance. The benefit of this approach is that the O/S is fully abstracted from the underlying hardware thus it doesn’t require any modification.
+
+""Locate sensitive instructions in guest binary and replace on-the-fly with
+emulation code or hypercall""
 
 ## Static Binary Translation
 
@@ -133,15 +166,6 @@ To overcome that, we instead emulate the program, executing each instruction. By
 DBT in its core is a few simple steps that allow us to group those important instructions into blocks and depending on their importance be able to execute them faster. For example, if a bunch of instructions are being executed constantly, instead of emulating them one by one, we could just compile them into native code for our architecture and then inject that native code every time we come across them.
 
 The DBT process is as follows:
-1. Emulate the next instruction, add it to the current group
-2. Have we found a jmp, call or ret?
-    - If yes, go to 3
-    - If no, go to 1 and keep emulating
-3. Since we found a control flow change, wrap up the current group. We now have a basic block
-4. Emulate the control flow change (jmp) and reach the first new instruction.
-5. Have we been here before?
-    - If yes, this is a group
-
 ```c
 while(true){
 
