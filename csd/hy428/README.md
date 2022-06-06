@@ -76,6 +76,8 @@ Operating systems are made with the idea of having all the hardware to themselve
 
 Thus, the hypervisor can detect wether an OS is trying to do something that would affect another OS and emulate that behavior instead of letting it run on the hardware. By doing that, the hypervisor can decide what the behavior of the instruction will be and protect the integrity of other OS's.
 
+![](img/tae.png)
+
 For example, OS A and OS B both try to draw on the screen using the GPU. Instead of letting them have full control of the screen, we can instead trap and emulate those calls to draw both, or one of the images on the screen:
 
 ![](img/trap_and_emulate.png)
@@ -188,5 +190,23 @@ while(true){
 }
 ```
 
+# I/O Virtualization
 
+## Types
 
+1. Full Virtualization (Device Emulation)
+
+![](img/emulation.png)
+
+2. Para-Virtualization
+
+![](img/paravirt.png)
+
+3. Mediated Pass-Through
+4. Direct Pass-Through
+
+![](img/passthrough.png)
+
+# KVM
+
+![](img/ioctl.png)
